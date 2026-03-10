@@ -18,23 +18,58 @@ CRGBArray<NUM_LEDS_1> leds1;
 CRGBArray<NUM_LEDS_2> leds2;
 
 void fadeInOut();
+void noiseEffect();
 
 void setup() {
     // Initialize FastLED
     FastLED.addLeds<WS2812SERIAL, LED_PIN_1, COLOR_ORDER>(leds1, leds1.size());
     FastLED.addLeds<WS2812SERIAL, LED_PIN_2, COLOR_ORDER>(leds2, leds2.size());
-    FastLED.setBrightness(10);
+    FastLED.setBrightness(50);
     
 }
 
 
 
 void loop() {
-  leds1.fill_solid(CRGB::Red);
-  leds2.fill_solid(CRGB::Blue);
-  FastLED.show();
+  EVERY_N_MILLIS(17) {
+    // leds2.fill_solid(CRGB::Blue);
+    noiseEffect();
+    FastLED.show();
+  }
     
     
+}
+
+void noiseEffect() {
+  CRGBPalette16 palette1 = LavaColors_p;
+  CRGBPalette16 palette2 = CloudColors_p;
+  static uint16_t z = 0;
+
+    for (int i = 0; i < NUM_LEDS_1; i++) {
+        // Generate noise value (0-255)
+        uint8_t noise = inoise8(
+          i * 10, 
+          millis() / 25 + i * 15
+        );
+
+        // Map to color (hue)
+        leds1[i] = ColorFromPalette(palette1, noise, 255, LINEARBLEND);
+    }
+
+    for (int i = 0; i < NUM_LEDS_2; i++) {
+        uint8_t noise = inoise8(
+          i * 10, 
+          millis() / 30
+        );
+
+        // Map to color (hue)
+        leds2[i] = ColorFromPalette(palette2, noise, 255, LINEARBLEND);
+    }
+
+    z += 1;
+
+    
+
 }
 
 
