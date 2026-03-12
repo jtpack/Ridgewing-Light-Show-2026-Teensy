@@ -4,6 +4,7 @@
 #include <WS2812Serial.h>
 #define USE_WS2812SERIAL
 #include <FastLED.h>
+#include <elapsedMillis.h>
 
 
 // Configuration
@@ -17,6 +18,22 @@
 CRGBArray<NUM_LEDS_1> leds1;
 CRGBArray<NUM_LEDS_2> leds2;
 
+unsigned int tempo_bpm = 30;
+
+unsigned int cycleDuration_ms = 2500; // How long between heartbeats
+unsigned int pulse2Delay_ms = 400; // Pulse 2 follows pulse 1 after this many ms.
+elapsedMillis pulse1Timer; // The 1st pulse in each heartbeat. This sets the overall tempo
+elapsedMillis pulse2Timer; // Handles the triggering of the 2nd pulse in each heartbeat
+
+int pulse1Decay = 6;
+int pulse2Decay = 3;
+
+CHSV currColor = CHSV(0, 255, 0); // Start black
+
+CHSV pulse1Color = CHSV(0, 255, 200);
+CHSV pulse2Color = CHSV(0, 255, 255);
+
+
 void fadeInOut();
 void noiseEffect();
 
@@ -24,17 +41,52 @@ void setup() {
     // Initialize FastLED
     FastLED.addLeds<WS2812SERIAL, LED_PIN_1, COLOR_ORDER>(leds1, leds1.size());
     FastLED.addLeds<WS2812SERIAL, LED_PIN_2, COLOR_ORDER>(leds2, leds2.size());
-    FastLED.setBrightness(50);
-    
+    FastLED.setBrightness(255);
+    Serial.begin(9600);
+    Serial.println("Boot");
 }
 
 
 
 void loop() {
-  EVERY_N_MILLIS(17) {
-    // leds2.fill_solid(CRGB::Blue);
-    noiseEffect();
+  static bool inPulse1 = false;
+  static bool inPulse2 = false;
+
+  if (pulse1Timer > cycleDuration_ms) {
+    // Start the 1st pulse of the heartbeat
+    inPulse1 = true;
+    pulse1Timer = 0;
+    currColor = pulse1Color;
+    
+    // Reset the timer for the trigger of pulse 2
+    pulse2Timer = 0;
+
+    // We are no longer in pulse 2
+    inPulse2 = false;
+  }
+
+  if (inPulse1 == true && pulse2Timer > pulse2Delay_ms) {
+    // Start the 2nd pulse
+    inPulse2 = true;
+    currColor = pulse2Color;
+
+    // We are no longer in pulse 1
+    inPulse1 = false;
+  }
+  
+
+
+  EVERY_N_MILLIS(16) {
+    fill_solid(leds1, NUM_LEDS_1, currColor);
     FastLED.show();
+    
+    // Apply fadeout
+    if (inPulse1 == true) {
+      currColor.v = max(currColor.v - pulse1Decay, 0);
+    } else if (inPulse2 == true) {
+      currColor.v = max(currColor.v - pulse2Decay, 0);
+    }
+
   }
     
     
