@@ -18,15 +18,16 @@
 CRGBArray<NUM_LEDS_1> leds1;
 CRGBArray<NUM_LEDS_2> leds2;
 
-unsigned int tempo_bpm = 30;
+float tempo_bpm = 20.0;
+float pulse2Delay = 0.2; // The proportion of the overall cycle that pulse 2 waits before triggering
 
-unsigned int cycleDuration_ms = 2500; // How long between heartbeats
-unsigned int pulse2Delay_ms = 400; // Pulse 2 follows pulse 1 after this many ms.
+unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
+unsigned int pulse2Delay_ms = round(cycleDuration_ms * pulse2Delay); // Pulse 2 follows pulse 1 after this many ms.
 elapsedMillis pulse1Timer; // The 1st pulse in each heartbeat. This sets the overall tempo
 elapsedMillis pulse2Timer; // Handles the triggering of the 2nd pulse in each heartbeat
 
-int pulse1Decay = 6;
-int pulse2Decay = 3;
+int pulse1Decay = round(tempo_bpm * 0.3);
+int pulse2Decay = round(tempo_bpm * 0.2);
 
 CHSV currColor = CHSV(0, 255, 0); // Start black
 
