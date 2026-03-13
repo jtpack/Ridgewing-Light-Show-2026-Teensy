@@ -14,22 +14,38 @@
 #define NUM_LEDS_2    144
 #define COLOR_ORDER BRG
 
+#define NUM_CHAMBERS  4
+
+#define CHAMBER_0_START_LED   0
+#define CHAMBER_1_START_LED   40
+#define CHAMBER_2_START_LED   41
+#define CHAMBER_3_START_LED   143
+
+
 // LED array
 CRGBArray<NUM_LEDS_1> leds1;
 CRGBArray<NUM_LEDS_2> leds2;
 
 float tempo_bpm = 20.0;
 float pulse2Delay = 0.2; // The proportion of the overall cycle that pulse 2 waits before triggering
+float rightSideDelay = 0.1; // The proportion of the overall cycle that the right side waits before following the left side
 
 unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
 unsigned int pulse2Delay_ms = round(cycleDuration_ms * pulse2Delay); // Pulse 2 follows pulse 1 after this many ms.
-elapsedMillis pulse1Timer; // The 1st pulse in each heartbeat. This sets the overall tempo
-elapsedMillis pulse2Timer; // Handles the triggering of the 2nd pulse in each heartbeat
+unsigned int rightSideDelay_ms = round(cycleDuration_ms * rightSideDelay);
 
-int pulse1Decay = round(tempo_bpm * 0.3);
-int pulse2Decay = round(tempo_bpm * 0.2);
+elapsedMillis leftPulse1Timer; // The 1st pulse in each heartbeat. This sets the overall tempo
+elapsedMillis leftPulse2Timer; // Handles the triggering of the 2nd pulse in each heartbeat
+elapsedMillis rightPulse1Timer; // The 1st pulse in each heartbeat. This sets the overall tempo
+elapsedMillis rightPulse2Timer; // Handles the triggering of the 2nd pulse in each heartbeat
 
-CHSV currColor = CHSV(0, 255, 0); // Start black
+int leftPulse1Decay = round(tempo_bpm * 0.3);
+int leftPulse2Decay = round(tempo_bpm * 0.2);
+int rightPulse1Decay = round(tempo_bpm * 0.33);
+int rightPulse2Decay = round(tempo_bpm * 0.24);
+
+CHSV leftCurrColor = CHSV(0, 255, 0); // Start black
+CHSV rightCurrColor = CHSV(0, 255, 0); // Start black
 
 CHSV pulse1Color = CHSV(0, 255, 200);
 CHSV pulse2Color = CHSV(0, 255, 255);
@@ -53,23 +69,23 @@ void loop() {
   static bool inPulse1 = false;
   static bool inPulse2 = false;
 
-  if (pulse1Timer > cycleDuration_ms) {
+  if (leftPulse1Timer > cycleDuration_ms) {
     // Start the 1st pulse of the heartbeat
     inPulse1 = true;
-    pulse1Timer = 0;
-    currColor = pulse1Color;
+    leftPulse1Timer = 0;
+    leftCurrColor = pulse1Color;
     
     // Reset the timer for the trigger of pulse 2
-    pulse2Timer = 0;
+    leftPulse2Timer = 0;
 
     // We are no longer in pulse 2
     inPulse2 = false;
   }
 
-  if (inPulse1 == true && pulse2Timer > pulse2Delay_ms) {
+  if (inPulse1 == true && leftPulse2Timer > pulse2Delay_ms) {
     // Start the 2nd pulse
     inPulse2 = true;
-    currColor = pulse2Color;
+    leftCurrColor = pulse2Color;
 
     // We are no longer in pulse 1
     inPulse1 = false;
@@ -78,14 +94,14 @@ void loop() {
 
 
   EVERY_N_MILLIS(16) {
-    fill_solid(leds1, NUM_LEDS_1, currColor);
+    fill_solid(leds1, NUM_LEDS_1, leftCurrColor);
     FastLED.show();
     
     // Apply fadeout
     if (inPulse1 == true) {
-      currColor.v = max(currColor.v - pulse1Decay, 0);
+      leftCurrColor.v = max(leftCurrColor.v - leftPulse1Decay, 0);
     } else if (inPulse2 == true) {
-      currColor.v = max(currColor.v - pulse2Decay, 0);
+      leftCurrColor.v = max(leftCurrColor.v - leftPulse2Decay, 0);
     }
 
   }
