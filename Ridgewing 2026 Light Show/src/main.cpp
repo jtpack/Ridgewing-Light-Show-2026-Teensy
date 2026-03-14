@@ -22,22 +22,21 @@ CRGBArray<RIGHT_TOP_NUM_LEDS + RIGHT_BOT_NUM_LEDS> rightLeds;
 
 
 float tempo_bpm = 20.0;
-float bottomDelay = 0.2; // The proportion of the overall cycle that the bottom leds wait before triggering
-float rightSideDelay = 0.1; // The proportion of the overall cycle that the right side waits before following the left side
+float leftBottomDelay = 0; // The proportion of the overall cycle that the left bottom leds wait before triggering
+float rightTopDelay = 0; // The proportion of the overall cycle that the right top leds wait before triggering
+float rightBottomDelay = 0; // The proportion of the overall cycle that the right bottom leds wait before triggering
 
-unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
-unsigned int pulse2Delay_ms = round(cycleDuration_ms * bottomDelay); // Pulse 2 follows pulse 1 after this many ms.
-unsigned int rightSideDelay_ms = round(cycleDuration_ms * rightSideDelay);
+float leftTopPulseDecay = 0.3; // The proportion of the overall cycle that the left top takes to decay to black
+float leftBottomPulseDecay = 1.0; // The proportion of the overall cycle that the left bottom takes to decay to black
+float rightTopPulseDecay = 1.0; // The proportion of the overall cycle that the right top takes to decay to black
+float rightBottomPulseDecay = 1.0; // The proportion of the overall cycle that the right bottom takes to decay to black
 
+
+elapsedMillis heartbeatCycleStartTimer;
 elapsedMillis leftTopPulseTimer;
 elapsedMillis leftBottomPulseTimer;
-elapsedMillis rightPulse1Timer;
-elapsedMillis rightPulse2Timer;
-
-int leftTopPulseDecay = round(tempo_bpm * 0.3);
-int leftBottomPulseDecay = round(tempo_bpm * 0.2);
-int rightTopPulseDecay = round(tempo_bpm * 0.33);
-int rightBottomPulseDecay = round(tempo_bpm * 0.24);
+elapsedMillis rightTopPulseTimer;
+elapsedMillis rightBottomPulseTimer;
 
 CHSV leftTopColor = CHSV(0, 255, 0); // Start black
 CHSV leftBottomColor = CHSV(0, 255, 0); // Start black
@@ -64,69 +63,118 @@ void setup() {
 
 
 void loop() {
-  static bool inPulse1 = false;
-  static bool inPulse2 = false;
+  // Update duration calculations based on global variables
+  unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
 
+  static bool waitingForLeftBottomPulse = false;
+  static bool waitingForRightTopPulse = false;
+  static bool waitingForRightBottomPulse = false;
 
-
-  // if (leftTopPulseTimer > cycleDuration_ms) {
-  //   // Start the 1st pulse of the heartbeat
-  //   inPulse1 = true;
-  //   leftTopPulseTimer = 0;
-  //   leftCurrColor = leftTopPulseColor;
-    
-  //   // Reset the timer for the trigger of pulse 2
-  //   leftBottomPulseTimer = 0;
-
-  //   // We are no longer in pulse 2
-  //   inPulse2 = false;
-  // }
-
-  // if (inPulse1 == true && leftBottomPulseTimer > pulse2Delay_ms) {
-  //   // Start the 2nd pulse
-  //   inPulse2 = true;
-  //   leftCurrColor = leftBottomPulseColor;
-
-  //   // We are no longer in pulse 1
-  //   inPulse1 = false;
-  // }
+  static float leftTopValue;
+  static float leftBottomValue;
+  static float rightTopValue;
+  static float rightBottomValue;
   
+  //
+  // Pulse Start Timers
+  //
 
+  if (heartbeatCycleStartTimer > cycleDuration_ms) {
+    // Start the 1st pulse of the heartbeat,
+    // which is also the left top pulse.
+    leftTopColor = leftTopPulseColor;
+    leftTopValue = leftTopColor.v;
 
-  EVERY_N_MILLIS(16) {
-    leftTopColor = CHSV(0, 255, 255);
-    leftBottomColor = CHSV(50, 255, 255);
-    rightTopColor = CHSV(100, 255, 255);
-    rightBottomColor = CHSV(150, 255, 255);
-    
-    // Update Left Top LEDs
+    // 
+    // rightTopColor = rightTopPulseColor;
+    // rightBottomColor = rightBottomPulseColor;
+
+    heartbeatCycleStartTimer = 0;
+
+    // Also start the timers for the other pulses
+    waitingForLeftBottomPulse = true;
+    leftBottomPulseTimer = 0;
+
+    waitingForRightTopPulse = true;
+    rightTopPulseTimer = 0;
+
+    waitingForRightBottomPulse = true;
+    rightBottomPulseTimer = 0;
+
+    waitingForRightTopPulse = true;
+    rightTopPulseTimer = 0;
+  }
+
+  // Left bottom pulse timer
+  //
+  if (waitingForLeftBottomPulse == true && leftBottomPulseTimer > round(cycleDuration_ms * leftBottomDelay)) {
+    waitingForLeftBottomPulse = false;
+
+    // Start the pulse
+    leftBottomColor = leftBottomPulseColor;
+    leftBottomValue = leftBottomColor.v;
+  }
+
+  // Right top pulse timer
+  //
+  if (waitingForLeftBottomPulse == true && rightTopPulseTimer > round(cycleDuration_ms * rightTopDelay)) {
+    waitingForLeftBottomPulse = false;
+
+    // Start the pulse
+    rightTopColor = rightTopPulseColor;
+    rightTopValue = rightTopColor.v;
+  }
+
+  // Right bottom pulse timer
+  //
+  if (waitingForLeftBottomPulse == true && rightBottomPulseTimer > round(cycleDuration_ms * rightBottomDelay)) {
+    waitingForLeftBottomPulse = false;
+
+    // Start the pulse
+    rightBottomColor = rightBottomPulseColor;
+    rightBottomValue = rightBottomColor.v;
+  }
+
+  //
+  // LED strips refresh
+  //
+
+  EVERY_N_MILLIS(16) {    
+    // Refresh left top LEDs
     for (int i = LEFT_BOT_NUM_LEDS; i < LEFT_BOT_NUM_LEDS + LEFT_TOP_NUM_LEDS; i++) {
       leftLeds[i] = leftTopColor;
     }
 
-    // Update Left Bottom LEDs
+    // Refresh left bottom LEDs
     for (int i = 0; i < LEFT_BOT_NUM_LEDS; i++) {
       leftLeds[i] = leftBottomColor;
     }
 
-    // Update Left Top LEDs
+    // Refresh right top LEDs
     for (int i = RIGHT_BOT_NUM_LEDS; i < RIGHT_BOT_NUM_LEDS + RIGHT_TOP_NUM_LEDS; i++) {
       rightLeds[i] = rightTopColor;
     }
 
-    // Update Left Bottom LEDs
+    // Refresh right bottom LEDs
     for (int i = 0; i < RIGHT_BOT_NUM_LEDS; i++) {
       rightLeds[i] = rightBottomColor;
     }
 
     FastLED.show();
     
-    // // Apply fadeout
-    // if (inPulse1 == true) {
-    //   leftCurrColor.v = max(leftCurrColor.v - leftTopPulseDecay, 0);
-    // } else if (inPulse2 == true) {
-    //   leftCurrColor.v = max(leftCurrColor.v - leftBottomPulseDecay, 0);
-    // }
+    // Apply automatic decay of colors down to black
+    leftTopColor.v = max(leftTopPulseColor.v - round((leftTopPulseColor.v / (leftTopPulseDecay * cycleDuration_ms)) * heartbeatCycleStartTimer), 0);
+
+    Serial.println(cycleDuration_ms);
+
+    float leftBottomPulseDecayIncrement = (leftBottomPulseDecay * cycleDuration_ms) / leftBottomPulseColor.v;
+    leftBottomColor.v = max(leftBottomPulseColor.v - round(leftBottomPulseDecayIncrement * leftBottomPulseTimer), 0);
+
+    float rightTopPulseDecayIncrement = (rightTopPulseDecay * cycleDuration_ms) / rightTopPulseColor.v;
+    rightTopColor.v = max(rightTopPulseColor.v - round(rightTopPulseDecayIncrement * rightTopPulseTimer), 0);
+
+    float rightBottomPulseDecayIncrement = (rightBottomPulseDecay * cycleDuration_ms) / rightBottomPulseColor.v;
+    rightBottomColor.v = max(rightBottomPulseColor.v - round(rightBottomPulseDecayIncrement * rightBottomPulseTimer), 0);
 
   }
     
@@ -134,37 +182,37 @@ void loop() {
 }
 
 
-void noiseEffect() {
-  CRGBPalette16 palette1 = LavaColors_p;
-  CRGBPalette16 palette2 = CloudColors_p;
-  static uint16_t z = 0;
+// void noiseEffect() {
+//   CRGBPalette16 palette1 = LavaColors_p;
+//   CRGBPalette16 palette2 = CloudColors_p;
+//   static uint16_t z = 0;
 
-    for (int i = 0; i < NUM_LEDS_1; i++) {
-        // Generate noise value (0-255)
-        uint8_t noise = inoise8(
-          i * 10, 
-          millis() / 25 + i * 15
-        );
+//     for (int i = 0; i < NUM_LEDS_1; i++) {
+//         // Generate noise value (0-255)
+//         uint8_t noise = inoise8(
+//           i * 10, 
+//           millis() / 25 + i * 15
+//         );
 
-        // Map to color (hue)
-        leds1[i] = ColorFromPalette(palette1, noise, 255, LINEARBLEND);
-    }
+//         // Map to color (hue)
+//         leds1[i] = ColorFromPalette(palette1, noise, 255, LINEARBLEND);
+//     }
 
-    for (int i = 0; i < NUM_LEDS_2; i++) {
-        uint8_t noise = inoise8(
-          i * 10, 
-          millis() / 30
-        );
+//     for (int i = 0; i < NUM_LEDS_2; i++) {
+//         uint8_t noise = inoise8(
+//           i * 10, 
+//           millis() / 30
+//         );
 
-        // Map to color (hue)
-        leds2[i] = ColorFromPalette(palette2, noise, 255, LINEARBLEND);
-    }
+//         // Map to color (hue)
+//         leds2[i] = ColorFromPalette(palette2, noise, 255, LINEARBLEND);
+//     }
 
-    z += 1;
+//     z += 1;
 
     
 
-}
+// }
 
 
 // void fadeInOut() {
