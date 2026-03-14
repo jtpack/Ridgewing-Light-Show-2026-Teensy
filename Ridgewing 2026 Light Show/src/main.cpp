@@ -1,6 +1,4 @@
 #include <Arduino.h>
-
-
 #include <WS2812Serial.h>
 #define USE_WS2812SERIAL
 #include <FastLED.h>
@@ -8,56 +6,56 @@
 
 
 // Configuration
-#define LED_PIN_1     1
-#define NUM_LEDS_1    144
-#define LED_PIN_2     8
-#define NUM_LEDS_2    144
 #define COLOR_ORDER BRG
 
-#define NUM_CHAMBERS  4
+// LED arrays
+#define LEFT_LED_PIN    1
+#define LEFT_TOP_NUM_LEDS 28
+#define LEFT_BOT_NUM_LEDS 55
 
-#define CHAMBER_0_START_LED   0
-#define CHAMBER_1_START_LED   40
-#define CHAMBER_2_START_LED   41
-#define CHAMBER_3_START_LED   143
+#define RIGHT_LED_PIN   8
+#define RIGHT_TOP_NUM_LEDS 14
+#define RIGHT_BOT_NUM_LEDS 63
 
+CRGBArray<LEFT_TOP_NUM_LEDS + LEFT_BOT_NUM_LEDS> leftLeds;
+CRGBArray<RIGHT_TOP_NUM_LEDS + RIGHT_BOT_NUM_LEDS> rightLeds;
 
-// LED array
-CRGBArray<NUM_LEDS_1> leds1;
-CRGBArray<NUM_LEDS_2> leds2;
 
 float tempo_bpm = 20.0;
-float pulse2Delay = 0.2; // The proportion of the overall cycle that pulse 2 waits before triggering
+float bottomDelay = 0.2; // The proportion of the overall cycle that the bottom leds wait before triggering
 float rightSideDelay = 0.1; // The proportion of the overall cycle that the right side waits before following the left side
 
 unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
-unsigned int pulse2Delay_ms = round(cycleDuration_ms * pulse2Delay); // Pulse 2 follows pulse 1 after this many ms.
+unsigned int pulse2Delay_ms = round(cycleDuration_ms * bottomDelay); // Pulse 2 follows pulse 1 after this many ms.
 unsigned int rightSideDelay_ms = round(cycleDuration_ms * rightSideDelay);
 
-elapsedMillis leftPulse1Timer; // The 1st pulse in each heartbeat. This sets the overall tempo
-elapsedMillis leftPulse2Timer; // Handles the triggering of the 2nd pulse in each heartbeat
-elapsedMillis rightPulse1Timer; // The 1st pulse in each heartbeat. This sets the overall tempo
-elapsedMillis rightPulse2Timer; // Handles the triggering of the 2nd pulse in each heartbeat
+elapsedMillis leftTopPulseTimer;
+elapsedMillis leftBottomPulseTimer;
+elapsedMillis rightPulse1Timer;
+elapsedMillis rightPulse2Timer;
 
-int leftPulse1Decay = round(tempo_bpm * 0.3);
-int leftPulse2Decay = round(tempo_bpm * 0.2);
-int rightPulse1Decay = round(tempo_bpm * 0.33);
-int rightPulse2Decay = round(tempo_bpm * 0.24);
+int leftTopPulseDecay = round(tempo_bpm * 0.3);
+int leftBottomPulseDecay = round(tempo_bpm * 0.2);
+int rightTopPulseDecay = round(tempo_bpm * 0.33);
+int rightBottomPulseDecay = round(tempo_bpm * 0.24);
 
-CHSV leftCurrColor = CHSV(0, 255, 0); // Start black
-CHSV rightCurrColor = CHSV(0, 255, 0); // Start black
+CHSV leftTopColor = CHSV(0, 255, 0); // Start black
+CHSV leftBottomColor = CHSV(0, 255, 0); // Start black
+CHSV rightTopColor = CHSV(0, 255, 0); // Start black
+CHSV rightBottomColor = CHSV(0, 255, 0); // Start black
 
-CHSV pulse1Color = CHSV(0, 255, 200);
-CHSV pulse2Color = CHSV(0, 255, 255);
+CHSV leftTopPulseColor = CHSV(0, 255, 200);
+CHSV leftBottomPulseColor = CHSV(0, 255, 255);
+CHSV rightTopPulseColor = CHSV(0, 255, 200);
+CHSV rightBottomPulseColor = CHSV(0, 255, 255);
 
 
-void fadeInOut();
-void noiseEffect();
 
 void setup() {
     // Initialize FastLED
-    FastLED.addLeds<WS2812SERIAL, LED_PIN_1, COLOR_ORDER>(leds1, leds1.size());
-    FastLED.addLeds<WS2812SERIAL, LED_PIN_2, COLOR_ORDER>(leds2, leds2.size());
+    FastLED.addLeds<WS2812SERIAL, LEFT_LED_PIN, COLOR_ORDER>(leftLeds, leftLeds.size());
+    FastLED.addLeds<WS2812SERIAL, RIGHT_LED_PIN, COLOR_ORDER>(rightLeds, rightLeds.size());
+    
     FastLED.setBrightness(255);
     Serial.begin(9600);
     Serial.println("Boot");
@@ -69,45 +67,72 @@ void loop() {
   static bool inPulse1 = false;
   static bool inPulse2 = false;
 
-  if (leftPulse1Timer > cycleDuration_ms) {
-    // Start the 1st pulse of the heartbeat
-    inPulse1 = true;
-    leftPulse1Timer = 0;
-    leftCurrColor = pulse1Color;
+
+
+  // if (leftTopPulseTimer > cycleDuration_ms) {
+  //   // Start the 1st pulse of the heartbeat
+  //   inPulse1 = true;
+  //   leftTopPulseTimer = 0;
+  //   leftCurrColor = leftTopPulseColor;
     
-    // Reset the timer for the trigger of pulse 2
-    leftPulse2Timer = 0;
+  //   // Reset the timer for the trigger of pulse 2
+  //   leftBottomPulseTimer = 0;
 
-    // We are no longer in pulse 2
-    inPulse2 = false;
-  }
+  //   // We are no longer in pulse 2
+  //   inPulse2 = false;
+  // }
 
-  if (inPulse1 == true && leftPulse2Timer > pulse2Delay_ms) {
-    // Start the 2nd pulse
-    inPulse2 = true;
-    leftCurrColor = pulse2Color;
+  // if (inPulse1 == true && leftBottomPulseTimer > pulse2Delay_ms) {
+  //   // Start the 2nd pulse
+  //   inPulse2 = true;
+  //   leftCurrColor = leftBottomPulseColor;
 
-    // We are no longer in pulse 1
-    inPulse1 = false;
-  }
+  //   // We are no longer in pulse 1
+  //   inPulse1 = false;
+  // }
   
 
 
   EVERY_N_MILLIS(16) {
-    fill_solid(leds1, NUM_LEDS_1, leftCurrColor);
+    leftTopColor = CHSV(0, 255, 255);
+    leftBottomColor = CHSV(50, 255, 255);
+    rightTopColor = CHSV(100, 255, 255);
+    rightBottomColor = CHSV(150, 255, 255);
+    
+    // Update Left Top LEDs
+    for (int i = LEFT_BOT_NUM_LEDS; i < LEFT_BOT_NUM_LEDS + LEFT_TOP_NUM_LEDS; i++) {
+      leftLeds[i] = leftTopColor;
+    }
+
+    // Update Left Bottom LEDs
+    for (int i = 0; i < LEFT_BOT_NUM_LEDS; i++) {
+      leftLeds[i] = leftBottomColor;
+    }
+
+    // Update Left Top LEDs
+    for (int i = RIGHT_BOT_NUM_LEDS; i < RIGHT_BOT_NUM_LEDS + RIGHT_TOP_NUM_LEDS; i++) {
+      rightLeds[i] = rightTopColor;
+    }
+
+    // Update Left Bottom LEDs
+    for (int i = 0; i < RIGHT_BOT_NUM_LEDS; i++) {
+      rightLeds[i] = rightBottomColor;
+    }
+
     FastLED.show();
     
-    // Apply fadeout
-    if (inPulse1 == true) {
-      leftCurrColor.v = max(leftCurrColor.v - leftPulse1Decay, 0);
-    } else if (inPulse2 == true) {
-      leftCurrColor.v = max(leftCurrColor.v - leftPulse2Decay, 0);
-    }
+    // // Apply fadeout
+    // if (inPulse1 == true) {
+    //   leftCurrColor.v = max(leftCurrColor.v - leftTopPulseDecay, 0);
+    // } else if (inPulse2 == true) {
+    //   leftCurrColor.v = max(leftCurrColor.v - leftBottomPulseDecay, 0);
+    // }
 
   }
     
     
 }
+
 
 void noiseEffect() {
   CRGBPalette16 palette1 = LavaColors_p;
