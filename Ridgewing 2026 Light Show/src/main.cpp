@@ -3,8 +3,6 @@
 #define USE_WS2812SERIAL
 #include <FastLED.h>
 #include <elapsedMillis.h>
-#include "Adafruit_seesaw.h"
-#include <seesaw_neopixel.h>
 
 //
 // LEDS
@@ -56,16 +54,15 @@ CHSV leftBottomPulseColor = CHSV(0, 255, 255);
 CHSV rightTopPulseColor = CHSV(0, 255, 255);
 CHSV rightBottomPulseColor = CHSV(0, 255, 255);
 
-int brightness = 255;
-const int kMinBrightness = 50;
+int minBrightness = 0;
+int maxBrightness = 255;
 
 //
-// Rotary Encoders
+// Potentiometers
 //
-const int kBrightnessEncoderAddress = 0x36;
 
-Adafruit_seesaw brightnessEncoder;
-seesaw_NeoPixel brightnessEncoderNeoPixel = seesaw_NeoPixel(1, 6, NEO_GRB + NEO_KHZ800);
+const int kMaxBrightnessPotPin = A0;
+const int kMinBrightnessPotPin = A1;
 
 
 void setup() {
@@ -75,25 +72,16 @@ void setup() {
     Serial.println("Boot");
     
     //
-    // Prepare Rotary Encoders
-    //
-    if (!brightnessEncoder.begin(kBrightnessEncoderAddress)) {
-      Serial.println("Error: Failed to initialize brightness encoder at address 0x36");
-    } else {
-      Serial.println("Brightness encoder initialized.");
-    }
-
-    brightnessEncoderNeoPixel.begin(kBrightnessEncoderAddress);
-    brightnessEncoderNeoPixel.setPixelColor(0, brightnessEncoderNeoPixel.Color(255, 0, 0));
-    brightnessEncoderNeoPixel.setBrightness(brightness);
-    brightnessEncoderNeoPixel.show();
-
-    //
     // Prepare LEDS
     //
     FastLED.addLeds<WS2812SERIAL, LEFT_LED_PIN, COLOR_ORDER>(leftLeds, leftLeds.size());
     FastLED.addLeds<WS2812SERIAL, RIGHT_LED_PIN, COLOR_ORDER>(rightLeds, rightLeds.size());
-    FastLED.setBrightness(brightness);
+    FastLED.setBrightness(255);
+
+    // Prepare Potentiometers
+    pinMode(kMaxBrightnessPotPin, INPUT);
+    pinMode(kMinBrightnessPotPin, INPUT);
+
 }
 
 
@@ -104,46 +92,28 @@ void loop() {
   static bool waitingToStartRightBottomPulse = false;
   
   //
-  // Rotary encoders update
-  //
-  int32_t delta = brightnessEncoder.getEncoderDelta();
-
-  // -1 is clockwise, 1 is counter-clockwise
-  if (delta != 0) {
-    // Handle spurious huge deltas
-    if (delta < 0) {
-      delta = 1;
-    } else if (delta > 0) {
-      delta = -1;
-    }
-
-    // int prevBrightness = brightness;
-
-    // brightness += delta * -1;
-    // if (brightness > 255) brightness = 255;
-    // if (brightness < kMinBrightness) brightness = kMinBrightness; 
-
-    // if (brightness != prevBrightness) {
-    //   Serial.print("Set brightness: ");
-    //   Serial.println(brightness);
-    //   FastLED.setBrightness(brightness);
-    //   FastLED.show();
-
-    //   // Update brightness encoder's NeoPixel
-    //   brightnessEncoderNeoPixel.setBrightness(brightness);
-    //   brightnessEncoderNeoPixel.show();
-    // }
-
-    tempo_bpm += delta;
-    Serial.print("Set tempo: ");
-    Serial.println(tempo_bpm);
-  }
-  
-  //
   // LED strips refresh
   //
   
   EVERY_N_MILLIS(16) {
+    //
+    // Read potentiometer positions
+    //
+    int newMaxBrightnessVal = map(analogRead(kMaxBrightnessPotPin), 0, 1023, 0, 255);
+    if (newMaxBrightnessVal != maxBrightness) {
+      maxBrightness = newMaxBrightnessVal;
+      FastLED.setBrightness(maxBrightness);
+      Serial.print("Max Brightness: ");
+      Serial.println(maxBrightness);
+    }
+
+    int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, 255);
+    if (newMinBrightnessVal != minBrightness) {
+      minBrightness = newMinBrightnessVal;
+      Serial.print("Min Brightness: ");
+      Serial.println(minBrightness);
+    }
+
     unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
     //
     // Pulse Start Timers
@@ -236,10 +206,10 @@ void loop() {
     // LED Decay
     //
       
-    leftTopColor.v = max(leftTopPulseColor.v - (leftTopDecayTimer * leftTopPulseColor.v) / (cycleDuration_ms * leftTopDecay), 0);
-    leftBottomColor.v = max(leftBottomPulseColor.v - (leftBottomDecayTimer * leftBottomPulseColor.v) / (cycleDuration_ms * leftBottomDecay), 0);
-    rightTopColor.v = max(rightTopPulseColor.v - (rightTopDecayTimer * rightTopPulseColor.v) / (cycleDuration_ms * rightTopDecay), 0);
-    rightBottomColor.v = max(rightBottomPulseColor.v - (rightBottomDecayTimer * rightBottomPulseColor.v) / (cycleDuration_ms * rightBottomDecay), 0);
+    leftTopColor.v = max(leftTopPulseColor.v - (leftTopDecayTimer * leftTopPulseColor.v) / (cycleDuration_ms * leftTopDecay), minBrightness);
+    leftBottomColor.v = max(leftBottomPulseColor.v - (leftBottomDecayTimer * leftBottomPulseColor.v) / (cycleDuration_ms * leftBottomDecay), minBrightness);
+    rightTopColor.v = max(rightTopPulseColor.v - (rightTopDecayTimer * rightTopPulseColor.v) / (cycleDuration_ms * rightTopDecay), minBrightness);
+    rightBottomColor.v = max(rightBottomPulseColor.v - (rightBottomDecayTimer * rightBottomPulseColor.v) / (cycleDuration_ms * rightBottomDecay), minBrightness);
 
   }
     
