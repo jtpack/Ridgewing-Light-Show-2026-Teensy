@@ -37,8 +37,8 @@ float rightBottomStartDelay = 0.15; // The proportion of the overall cycle that 
 
 float leftTopDecay = 0.7; // The proportion of the overall cycle that the left top takes to decay to black
 float leftBottomDecay = 0.7; // The proportion of the overall cycle that the left bottom takes to decay to black
-float rightTopDecay = 0.6; // The proportion of the overall cycle that the right top takes to decay to black
-float rightBottomDecay = 0.6; // The proportion of the overall cycle that the right bottom takes to decay to black
+float rightTopDecay = 0.7; // The proportion of the overall cycle that the right top takes to decay to black
+float rightBottomDecay = 0.7; // The proportion of the overall cycle that the right bottom takes to decay to black
 
 elapsedMillis heartbeatCycleStartTimer;
 elapsedMillis leftTopStartTimer;
@@ -51,15 +51,17 @@ elapsedMillis leftBottomDecayTimer;
 elapsedMillis rightTopDecayTimer;
 elapsedMillis rightBottomDecayTimer;
 
-CHSV leftTopColor = CHSV(0, 255, 0); // Start black
-CHSV leftBottomColor = CHSV(0, 255, 0); // Start black
-CHSV rightTopColor = CHSV(0, 255, 0); // Start black
-CHSV rightBottomColor = CHSV(0, 255, 0); // Start black
+int heartbeatHue = 0;
 
-CHSV leftTopPulseColor = CHSV(0, 255, 255);
-CHSV leftBottomPulseColor = CHSV(0, 255, 255);
-CHSV rightTopPulseColor = CHSV(0, 255, 255);
-CHSV rightBottomPulseColor = CHSV(0, 255, 255);
+CHSV leftTopColor = CHSV(heartbeatHue, 255, 0); // Start black
+CHSV leftBottomColor = CHSV(heartbeatHue, 255, 0); // Start black
+CHSV rightTopColor = CHSV(heartbeatHue, 255, 0); // Start black
+CHSV rightBottomColor = CHSV(heartbeatHue, 255, 0); // Start black
+
+CHSV leftTopPulseColor = CHSV(heartbeatHue, 255, 255);
+CHSV leftBottomPulseColor = CHSV(heartbeatHue, 255, 255);
+CHSV rightTopPulseColor = CHSV(heartbeatHue, 255, 255);
+CHSV rightBottomPulseColor = CHSV(heartbeatHue, 255, 255);
 
 int minBrightness = 0;
 int maxBrightness = 255;
@@ -142,12 +144,30 @@ void loop() {
       Serial.println(maxBrightness);
     }
 
-    int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, 255);
-    if (newMinBrightnessVal != minBrightness) {
-      minBrightness = newMinBrightnessVal;
-      Serial.print("Min Brightness: ");
-      Serial.println(minBrightness);
+    int newTempo = map(analogRead(kMinBrightnessPotPin), 0, 1023, 28, 50);
+    if (newTempo != tempo_bpm) {
+      Serial.print("New Tempo: ");
+      Serial.println(newTempo);
+      tempo_bpm = newTempo;
     }
+
+    // int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, 255);
+    // if (newMinBrightnessVal != minBrightness) {
+    //   minBrightness = newMinBrightnessVal;
+    //   Serial.print("Min Brightness: ");
+    //   Serial.println(minBrightness);
+    // }
+
+    // int newHue = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, 255);
+    // if (newHue != heartbeatHue) {
+    //   Serial.print("Hue: ");
+    //   Serial.println(newHue);
+    //   heartbeatHue = newHue;
+    //   leftTopColor.h = heartbeatHue;
+    //   leftBottomColor.h = heartbeatHue;
+    //   rightTopColor.h = heartbeatHue;
+    //   rightBottomColor.h = heartbeatHue;
+    // }
 
     unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
     //
