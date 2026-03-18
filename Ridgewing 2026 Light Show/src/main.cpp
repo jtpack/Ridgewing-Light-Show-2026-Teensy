@@ -3,6 +3,13 @@
 #define USE_WS2812SERIAL
 #include <FastLED.h>
 #include <elapsedMillis.h>
+#include "Melopero_RV3028.h"
+
+//
+// Realtime Clock
+//
+Melopero_RV3028 rtc;
+
 
 //
 // LEDS
@@ -65,6 +72,10 @@ const int kMaxBrightnessPotPin = A0;
 const int kMinBrightnessPotPin = A1;
 
 
+// Forward declarations
+void printTime();
+
+
 void setup() {
     Serial.begin(9600);
     while (!Serial) delay(10);
@@ -82,6 +93,18 @@ void setup() {
     pinMode(kMaxBrightnessPotPin, INPUT);
     pinMode(kMinBrightnessPotPin, INPUT);
 
+    // Prepare Realtime Clock
+    Wire.begin();
+    rtc.initI2C();
+
+    // Use 24-hour mode
+    rtc.set24HourMode();
+
+    //rtc.setTime(2026, 3, 4, 18, 7, 14, 0);
+
+    printTime();
+
+
 }
 
 
@@ -90,6 +113,18 @@ void loop() {
   static bool waitingToStartLeftBottomPulse = false;
   static bool waitingToStartRightTopPulse = false;
   static bool waitingToStartRightBottomPulse = false;
+
+  //
+  // Realtime Clock
+  //
+  EVERY_N_SECONDS(1) {
+    // Get the current time
+    printTime();
+
+    // Calculate how far we are into the day
+    int secondsElapsedToday = (rtc.getHour() * 3600) + (rtc.getMinute() * 60) + rtc.getSecond();
+    Serial.println(secondsElapsedToday);
+  }
   
   //
   // LED strips refresh
@@ -214,4 +249,19 @@ void loop() {
   }
     
     
+}
+
+
+void printTime(){
+  Serial.print(rtc.getYear());
+  Serial.print("-");
+  Serial.print(rtc.getMonth());
+  Serial.print("-");
+  Serial.print(rtc.getDate());
+  Serial.print(" ");
+  Serial.print(rtc.getHour());
+  Serial.print(":");
+  Serial.print(rtc.getMinute());
+  Serial.print(":");
+  Serial.println(rtc.getSecond());
 }
