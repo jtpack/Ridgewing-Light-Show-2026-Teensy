@@ -80,7 +80,6 @@ void printTime();
 
 void setup() {
     Serial.begin(9600);
-    while (!Serial) delay(10);
 
     Serial.println("Boot");
     
@@ -102,7 +101,7 @@ void setup() {
     // Use 24-hour mode
     rtc.set24HourMode();
 
-    //rtc.setTime(2026, 3, 4, 18, 7, 14, 0);
+    //rtc.setTime(2026, 3, 4, 23, 7, 11, 30);
 
     printTime();
 
