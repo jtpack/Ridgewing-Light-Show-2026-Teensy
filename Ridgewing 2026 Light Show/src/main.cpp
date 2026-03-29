@@ -3,12 +3,11 @@
 #define USE_WS2812SERIAL
 #include <FastLED.h>
 #include <elapsedMillis.h>
-#include "Melopero_RV3028.h"
+
 
 //
 // Realtime Clock
 //
-Melopero_RV3028 rtc;
 
 
 //
@@ -70,41 +69,56 @@ int maxBrightness = 255;
 // Potentiometers
 //
 
-const int kMaxBrightnessPotPin = A0;
-const int kMinBrightnessPotPin = A1;
+const int kMaxBrightnessPotPin = A12;
+const int kMinBrightnessPotPin = A11;
+const int kManualTempoPotPin = A10;
 
+//
+// Switches
+//
 
-// Forward declarations
-void printTime();
+const int kManualTempoSwitchPin = 32;
+
+//
+// Status LEDs
+//
+
+const int kStatusLedPin = 2;
 
 
 void setup() {
-    Serial.begin(9600);
+  // Prepare Status LEDs
+  pinMode(kStatusLedPin, OUTPUT);
 
-    Serial.println("Boot");
-    
-    //
-    // Prepare LEDS
-    //
-    FastLED.addLeds<WS2812SERIAL, LEFT_LED_PIN, COLOR_ORDER>(leftLeds, leftLeds.size());
-    FastLED.addLeds<WS2812SERIAL, RIGHT_LED_PIN, COLOR_ORDER>(rightLeds, rightLeds.size());
-    FastLED.setBrightness(255);
+  // Turn off LED
+  digitalWrite(kStatusLedPin, LOW);
 
-    // Prepare Potentiometers
-    pinMode(kMaxBrightnessPotPin, INPUT);
-    pinMode(kMinBrightnessPotPin, INPUT);
+  Serial.begin(9600);
 
-    // Prepare Realtime Clock
-    Wire.begin();
-    rtc.initI2C();
+  Serial.println("Starting Boot Process...");
+  
+  //
+  // Prepare LEDS
+  //
+  FastLED.addLeds<WS2812SERIAL, LEFT_LED_PIN, COLOR_ORDER>(leftLeds, leftLeds.size());
+  FastLED.addLeds<WS2812SERIAL, RIGHT_LED_PIN, COLOR_ORDER>(rightLeds, rightLeds.size());
+  FastLED.setBrightness(255);
 
-    // Use 24-hour mode
-    rtc.set24HourMode();
+  // Prepare Potentiometers
+  pinMode(kMaxBrightnessPotPin, INPUT);
+  pinMode(kMinBrightnessPotPin, INPUT);
+  pinMode(kManualTempoPotPin, INPUT);
+  
+  // Prepare Switches
+  pinMode(kManualTempoSwitchPin, INPUT_PULLUP);
 
-    //rtc.setTime(2026, 3, 4, 23, 7, 11, 30);
+  // Light status LED to show that system has booted
+  digitalWrite(kStatusLedPin, HIGH);
 
-    printTime();
+  Serial.println("Booted.");
 
+  
+  // Prepare Realtime Clock
 
 }
 
@@ -115,17 +129,19 @@ void loop() {
   static bool waitingToStartRightTopPulse = false;
   static bool waitingToStartRightBottomPulse = false;
 
-  //
-  // Realtime Clock
-  //
-  EVERY_N_SECONDS(1) {
-    // Get the current time
-    printTime();
+  // //
+  // // Realtime Clock
+  // //
+  // EVERY_N_SECONDS(1) {
+  //   // Get the current time
+  //   printTime();
 
-    // Calculate how far we are into the day
-    int secondsElapsedToday = (rtc.getHour() * 3600) + (rtc.getMinute() * 60) + rtc.getSecond();
-    Serial.println(secondsElapsedToday);
-  }
+  //   // Calculate how far we are into the day
+  //   int secondsElapsedToday = (rtc.getHour() * 3600) + (rtc.getMinute() * 60) + rtc.getSecond();
+  //   Serial.println(secondsElapsedToday);
+
+  //   // Map to a tempo range
+  // }
   
   //
   // LED strips refresh
@@ -135,7 +151,7 @@ void loop() {
     //
     // Read potentiometer positions
     //
-    int newMaxBrightnessVal = map(analogRead(kMaxBrightnessPotPin), 0, 1023, 0, 255);
+    int newMaxBrightnessVal = map(analogRead(kMaxBrightnessPotPin), 0, 1023, 255, 0);
     if (newMaxBrightnessVal != maxBrightness) {
       maxBrightness = newMaxBrightnessVal;
       FastLED.setBrightness(maxBrightness);
@@ -143,19 +159,19 @@ void loop() {
       Serial.println(maxBrightness);
     }
 
-    int newTempo = map(analogRead(kMinBrightnessPotPin), 0, 1023, 28, 50);
+    int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, 50, 28);
     if (newTempo != tempo_bpm) {
-      Serial.print("New Tempo: ");
+      Serial.print("Tempo: ");
       Serial.println(newTempo);
       tempo_bpm = newTempo;
     }
 
-    // int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, 255);
-    // if (newMinBrightnessVal != minBrightness) {
-    //   minBrightness = newMinBrightnessVal;
-    //   Serial.print("Min Brightness: ");
-    //   Serial.println(minBrightness);
-    // }
+    int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 255, 0);
+    if (newMinBrightnessVal != minBrightness) {
+      minBrightness = newMinBrightnessVal;
+      Serial.print("Min Brightness: ");
+      Serial.println(minBrightness);
+    }
 
     // int newHue = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, 255);
     // if (newHue != heartbeatHue) {
@@ -271,16 +287,16 @@ void loop() {
 }
 
 
-void printTime(){
-  Serial.print(rtc.getYear());
-  Serial.print("-");
-  Serial.print(rtc.getMonth());
-  Serial.print("-");
-  Serial.print(rtc.getDate());
-  Serial.print(" ");
-  Serial.print(rtc.getHour());
-  Serial.print(":");
-  Serial.print(rtc.getMinute());
-  Serial.print(":");
-  Serial.println(rtc.getSecond());
-}
+// void printTime(){
+//   Serial.print(rtc.getYear());
+//   Serial.print("-");
+//   Serial.print(rtc.getMonth());
+//   Serial.print("-");
+//   Serial.print(rtc.getDate());
+//   Serial.print(" ");
+//   Serial.print(rtc.getHour());
+//   Serial.print(":");
+//   Serial.print(rtc.getMinute());
+//   Serial.print(":");
+//   Serial.println(rtc.getSecond());
+// }
