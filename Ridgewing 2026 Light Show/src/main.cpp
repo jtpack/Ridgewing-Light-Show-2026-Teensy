@@ -3,12 +3,13 @@
 #define USE_WS2812SERIAL
 #include <FastLED.h>
 #include <elapsedMillis.h>
+#include <SparkFun_RV8803.h>
 
 
 //
 // Realtime Clock
 //
-
+RV8803 rtc;
 
 //
 // LEDS
@@ -79,24 +80,45 @@ const int kManualTempoPotPin = A10;
 
 const int kManualTempoSwitchPin = 32;
 
+// When true, use the position of the manual tempo pot
+// to set tempo rather than using the realtime clock.
+bool manualTempoOverrideEnabled = false; 
+
 //
 // Status LEDs
 //
 
 const int kStatusLedPin = 2;
 
+enum class StatusLedState {
+  On,
+  BlinkingSlow,
+  BlinkingFast,
+  Off
+};
+
+StatusLedState statusLedState = StatusLedState::Off;
+
+const int kStatusLedSlowBlinkTime_ms = 1000;
+const int kStatusLedFastBlinkTime_ms = 200;
+
 
 void setup() {
-  // Prepare Status LEDs
+  Serial.begin(9600);
+  Serial.println("Starting Boot Process...");
+
+  //
+  // Prepare Status LED
+  //
   pinMode(kStatusLedPin, OUTPUT);
 
-  // Turn off LED
+  // Turn off status LED
   digitalWrite(kStatusLedPin, LOW);
 
-  Serial.begin(9600);
+  // Start with success LED status, and let
+  // any error change it
+  statusLedState = StatusLedState::On;
 
-  Serial.println("Starting Boot Process...");
-  
   //
   // Prepare LEDS
   //
@@ -104,44 +126,137 @@ void setup() {
   FastLED.addLeds<WS2812SERIAL, RIGHT_LED_PIN, COLOR_ORDER>(rightLeds, rightLeds.size());
   FastLED.setBrightness(255);
 
+  //
   // Prepare Potentiometers
+  //
   pinMode(kMaxBrightnessPotPin, INPUT);
   pinMode(kMinBrightnessPotPin, INPUT);
   pinMode(kManualTempoPotPin, INPUT);
   
-  // Prepare Switches
+  //
+  // Prepare Switch
+  //
   pinMode(kManualTempoSwitchPin, INPUT_PULLUP);
 
-  // Light status LED to show that system has booted
-  digitalWrite(kStatusLedPin, HIGH);
+  //
+  // Prepare Realtime Clock
+  //
+  Wire.begin();
+  if (rtc.begin() == false) {
+    Serial.println("RTC not found. Using manual tempo control");
+    statusLedState = StatusLedState::BlinkingFast;
+  } else {
+    Serial.println("Initialized RTC");
+  }
+
+  // // Set the clock to the compiler time.
+  // // This only needs to be done once
+  // if (rtc.setToCompilerTime() == false) {
+  //   Serial.println("Failed to set RTC time");
+  // } else {
+  //   Serial.println("Set RTC time");
+  // }
 
   Serial.println("Booted.");
-
-  
-  // Prepare Realtime Clock
-
 }
 
 
 
 void loop() {
+  static bool statusLedOn = false;
+  static int blinkTime = 0;
+
   static bool waitingToStartLeftBottomPulse = false;
   static bool waitingToStartRightTopPulse = false;
   static bool waitingToStartRightBottomPulse = false;
 
-  // //
-  // // Realtime Clock
-  // //
-  // EVERY_N_SECONDS(1) {
-  //   // Get the current time
-  //   printTime();
+  // 
+  // Status LED
+  //
+  switch (statusLedState) {
+    case StatusLedState::BlinkingFast:
+      blinkTime = kStatusLedFastBlinkTime_ms;
+      break;
+    
+    case StatusLedState::BlinkingSlow:
+      blinkTime = kStatusLedSlowBlinkTime_ms;
+      break;
 
-  //   // Calculate how far we are into the day
-  //   int secondsElapsedToday = (rtc.getHour() * 3600) + (rtc.getMinute() * 60) + rtc.getSecond();
-  //   Serial.println(secondsElapsedToday);
+    default:
+      blinkTime = 0;
+  }
 
-  //   // Map to a tempo range
-  // }
+  switch (statusLedState) {
+    case StatusLedState::BlinkingSlow:
+    case StatusLedState::BlinkingFast:
+      EVERY_N_MILLIS(blinkTime) {
+        statusLedOn = !statusLedOn;
+      }
+      break;
+
+    case StatusLedState::Off:
+      statusLedOn = false;
+      break;
+
+    case StatusLedState::On:
+      statusLedOn = true;
+      break;
+  }
+
+  digitalWrite(kStatusLedPin, HIGH ? statusLedOn == true : LOW);
+
+  //
+  // Realtime Clock
+  //
+  EVERY_N_SECONDS(1) {
+    // Get the current time
+    if (rtc.updateTime() == true) {
+      String currentDate = rtc.stringDateUSA();
+      String currentTime = rtc.stringTime();
+      Serial.print(currentDate);
+      Serial.print(" ");
+      Serial.println(currentTime);
+    } else {
+      Serial.println("Failed to read from RTC");
+    }
+
+  }
+
+  //
+  // Manual Override Switch
+  // 
+  static bool manualTempoSwitchValue = false;
+  bool newManualTempoSwitchValue = digitalRead(kManualTempoSwitchPin) == LOW ? true : false;
+  if (newManualTempoSwitchValue != manualTempoSwitchValue) {
+    manualTempoSwitchValue = newManualTempoSwitchValue;
+
+    if (manualTempoSwitchValue == true) {
+      Serial.println("Manual tempo switch ON");
+      manualTempoOverrideEnabled = true;
+      statusLedState = StatusLedState::BlinkingSlow;
+    } else {
+      Serial.println("Manual tempo switch OFF");
+      manualTempoOverrideEnabled = false;
+      statusLedState = StatusLedState::On;
+      // TODO: Gracefully handle RTC failure...
+    }
+
+  }
+
+  if (manualTempoOverrideEnabled == true) {
+    int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, 50, 28);
+    if (newTempo != tempo_bpm) {
+      Serial.print("Manual Tempo: ");
+      Serial.println(newTempo);
+      tempo_bpm = newTempo;
+      // TODO: Do better debouncing of tempo control
+    }
+
+  } else {
+    // TODO: Implement RTC-controlled tempo
+    tempo_bpm = 60;
+  }
+
   
   //
   // LED strips refresh
@@ -157,13 +272,6 @@ void loop() {
       FastLED.setBrightness(maxBrightness);
       Serial.print("Max Brightness: ");
       Serial.println(maxBrightness);
-    }
-
-    int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, 50, 28);
-    if (newTempo != tempo_bpm) {
-      Serial.print("Tempo: ");
-      Serial.println(newTempo);
-      tempo_bpm = newTempo;
     }
 
     int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 255, 0);
