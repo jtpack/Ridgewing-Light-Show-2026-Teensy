@@ -10,6 +10,7 @@
 // Realtime Clock
 //
 RV8803 rtc;
+int secondsElapsedSinceMidnight = 0;
 
 //
 // LEDS
@@ -149,13 +150,23 @@ void setup() {
     Serial.println("Initialized RTC");
   }
 
-  // // Set the clock to the compiler time.
-  // // This only needs to be done once
-  // if (rtc.setToCompilerTime() == false) {
-  //   Serial.println("Failed to set RTC time");
-  // } else {
-  //   Serial.println("Set RTC time");
-  // }
+  const bool needToSetTime = false;
+
+  if (needToSetTime == true) {
+    int year = 2025;
+    int month = 4;
+    int date = 3;
+    int weekday = 5;
+    int hour = 7; // Use 24 hour mode
+    int minute = 43;
+    int sec = 30;
+
+    if (rtc.setTime(sec, minute, hour, weekday, date, month, year) == false) {
+      Serial.println("Something went wrong setting the time");
+    }
+  }
+  
+  rtc.set24Hour();
 
   Serial.println("Booted.");
 }
@@ -213,9 +224,16 @@ void loop() {
     if (rtc.updateTime() == true) {
       String currentDate = rtc.stringDateUSA();
       String currentTime = rtc.stringTime();
+      int hoursSinceMidnight = rtc.getHours();
+      int minutesInThisHour = rtc.getMinutes();
+      int secondsInThisHour = rtc.getSeconds();
+      secondsElapsedSinceMidnight = hoursSinceMidnight * 3600 + minutesInThisHour * 60 + secondsInThisHour;
       Serial.print(currentDate);
       Serial.print(" ");
-      Serial.println(currentTime);
+      Serial.print(currentTime);
+      Serial.print(" - ");
+      Serial.print(secondsElapsedSinceMidnight);
+      Serial.println(" seconds elapsed since midnight");
     } else {
       Serial.println("Failed to read from RTC");
     }
@@ -280,17 +298,6 @@ void loop() {
       Serial.print("Min Brightness: ");
       Serial.println(minBrightness);
     }
-
-    // int newHue = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, 255);
-    // if (newHue != heartbeatHue) {
-    //   Serial.print("Hue: ");
-    //   Serial.println(newHue);
-    //   heartbeatHue = newHue;
-    //   leftTopColor.h = heartbeatHue;
-    //   leftBottomColor.h = heartbeatHue;
-    //   rightTopColor.h = heartbeatHue;
-    //   rightBottomColor.h = heartbeatHue;
-    // }
 
     unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
     //
