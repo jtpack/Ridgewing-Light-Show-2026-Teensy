@@ -396,7 +396,20 @@ void loop() {
     rightTopColor.v = max(rightTopPulseColor.v - (rightTopDecayTimer * rightTopPulseColor.v) / (cycleDuration_ms * rightTopDecay), minBrightness);
     rightBottomColor.v = max(rightBottomPulseColor.v - (rightBottomDecayTimer * rightBottomPulseColor.v) / (cycleDuration_ms * rightBottomDecay), minBrightness);
 
+    
+    
+
   }
+
+  // EVERY_N_SECONDS(2) {
+  //   heartbeatHue += 1;
+  //   if (heartbeatHue > 255) {
+  //     heartbeatHue = 0;
+  //   }
+  //   leftBottomColor.h = heartbeatHue;
+  //   leftBottomPulseColor.h = heartbeatHue;
+  //   Serial.println(heartbeatHue);
+  // }
     
     
 }
