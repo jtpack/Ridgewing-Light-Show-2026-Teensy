@@ -32,14 +32,28 @@ CRGBArray<LEFT_TOP_NUM_LEDS + LEFT_BOT_NUM_LEDS> leftLeds;
 CRGBArray<RIGHT_TOP_NUM_LEDS + RIGHT_BOT_NUM_LEDS> rightLeds;
 
 float tempo_bpm = 50.0;
-float rightTopStartDelay = 0.015; // The proportion of the overall cycle that the right top leds wait before triggering
-float leftBottomStartDelay = 0.15; // The proportion of the overall cycle that the left bottom leds wait before triggering
-float rightBottomStartDelay = 0.15; // The proportion of the overall cycle that the right bottom leds wait before triggering
 
-float leftTopDecay = 0.7; // The proportion of the overall cycle that the left top takes to decay to black
-float leftBottomDecay = 0.7; // The proportion of the overall cycle that the left bottom takes to decay to black
-float rightTopDecay = 0.7; // The proportion of the overall cycle that the right top takes to decay to black
-float rightBottomDecay = 0.7; // The proportion of the overall cycle that the right bottom takes to decay to black
+// Proportion of overall cycle that each section of LEDs waits to trigger
+float rightTopStartDelay = 0.015;
+float leftBottomStartDelay = 0.15;
+float rightBottomStartDelay = 0.15;
+
+// Proportion of overall cycle required to reach full brightness
+float leftTopAttack = 0.1;
+float leftBottomAttack = 0.1;
+float rightTopAttack = 0.1;
+float rightBottomAttack = 0.1;
+
+// Proportion of overall cycle required to fade down to black
+float leftTopDecay = 0.7; 
+float leftBottomDecay = 0.7; 
+float rightTopDecay = 0.7;
+float rightBottomDecay = 0.7;
+
+float leftTopBrightness = 0.0;
+float leftBottomBrightness = 0.0;
+float rightTopBrightness = 0.0;
+float rightBottomBrightness = 0.0;
 
 elapsedMillis heartbeatCycleStartTimer;
 elapsedMillis leftTopStartTimer;
@@ -54,19 +68,6 @@ elapsedMillis rightBottomDecayTimer;
 
 int heartbeatHue = 0;
 
-CHSV leftTopColor = CHSV(heartbeatHue, 255, 0); // Start black
-CHSV leftBottomColor = CHSV(heartbeatHue, 255, 0); // Start black
-CHSV rightTopColor = CHSV(heartbeatHue, 255, 0); // Start black
-CHSV rightBottomColor = CHSV(heartbeatHue, 255, 0); // Start black
-
-CHSV leftTopPulseColor = CHSV(heartbeatHue, 255, 255);
-CHSV leftBottomPulseColor = CHSV(heartbeatHue, 255, 255);
-CHSV rightTopPulseColor = CHSV(heartbeatHue, 255, 255);
-CHSV rightBottomPulseColor = CHSV(heartbeatHue, 255, 255);
-
-int minBrightness = 0;
-int maxBrightness = 255;
-
 //
 // Potentiometers
 //
@@ -74,6 +75,9 @@ int maxBrightness = 255;
 const int kMaxBrightnessPotPin = A12;
 const int kMinBrightnessPotPin = A11;
 const int kManualTempoPotPin = A10;
+
+int minBrightness = 0;
+int maxBrightness = 255;
 
 //
 // Switches
@@ -102,6 +106,20 @@ StatusLedState statusLedState = StatusLedState::Off;
 
 const int kStatusLedSlowBlinkTime_ms = 1000;
 const int kStatusLedFastBlinkTime_ms = 200;
+
+
+//
+// Gamma Correction
+//
+
+float gammaCorrectionFactor = 1.5;
+
+//
+// Forward Declarations
+//
+
+int gammaCorrectedValue(int value, float correctionFactor);
+float gammaCorrectedFloatValue(float value, float correctionFactor);
 
 
 void setup() {
@@ -169,6 +187,13 @@ void setup() {
   rtc.set24Hour();
 
   Serial.println("Booted.");
+
+  // while (leftTopBrightness < 1.1) {
+  //   Serial.print(leftTopBrightness);
+  //   Serial.print(" -> ");
+  //   Serial.println(gammaCorrectedFloatValue(leftTopBrightness, gammaCorrectionFactor));
+  //   leftTopBrightness += 0.1;
+  // }
 }
 
 
@@ -228,59 +253,20 @@ void loop() {
       int minutesInThisHour = rtc.getMinutes();
       int secondsInThisHour = rtc.getSeconds();
       secondsElapsedSinceMidnight = hoursSinceMidnight * 3600 + minutesInThisHour * 60 + secondsInThisHour;
-      Serial.print(currentDate);
-      Serial.print(" ");
-      Serial.print(currentTime);
-      Serial.print(" - ");
-      Serial.print(secondsElapsedSinceMidnight);
-      Serial.println(" seconds elapsed since midnight");
+      // Serial.print(currentDate);
+      // Serial.print(" ");
+      // Serial.print(currentTime);
+      // Serial.print(" - ");
+      // Serial.print(secondsElapsedSinceMidnight);
+      // Serial.println(" seconds elapsed since midnight");
     } else {
       Serial.println("Failed to read from RTC");
     }
 
   }
 
-  //
-  // Manual Override Switch
-  // 
-  static bool manualTempoSwitchValue = false;
-  bool newManualTempoSwitchValue = digitalRead(kManualTempoSwitchPin) == LOW ? true : false;
-  if (newManualTempoSwitchValue != manualTempoSwitchValue) {
-    manualTempoSwitchValue = newManualTempoSwitchValue;
 
-    if (manualTempoSwitchValue == true) {
-      Serial.println("Manual tempo switch ON");
-      manualTempoOverrideEnabled = true;
-      statusLedState = StatusLedState::BlinkingSlow;
-    } else {
-      Serial.println("Manual tempo switch OFF");
-      manualTempoOverrideEnabled = false;
-      statusLedState = StatusLedState::On;
-      // TODO: Gracefully handle RTC failure...
-    }
-
-  }
-
-  if (manualTempoOverrideEnabled == true) {
-    int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, 50, 28);
-    if (newTempo != tempo_bpm) {
-      Serial.print("Manual Tempo: ");
-      Serial.println(newTempo);
-      tempo_bpm = newTempo;
-      // TODO: Do better debouncing of tempo control
-    }
-
-  } else {
-    // TODO: Implement RTC-controlled tempo
-    tempo_bpm = 60;
-  }
-
-  
-  //
-  // LED strips refresh
-  //
-  
-  EVERY_N_MILLIS(16) {
+  EVERY_N_MILLIS(10) {
     //
     // Read potentiometer positions
     //
@@ -288,17 +274,63 @@ void loop() {
     if (newMaxBrightnessVal != maxBrightness) {
       maxBrightness = newMaxBrightnessVal;
       FastLED.setBrightness(maxBrightness);
-      Serial.print("Max Brightness: ");
-      Serial.println(maxBrightness);
+      // Serial.print("Max Brightness: ");
+      // Serial.println(maxBrightness);
     }
 
     int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 255, 0);
     if (newMinBrightnessVal != minBrightness) {
       minBrightness = newMinBrightnessVal;
-      Serial.print("Min Brightness: ");
-      Serial.println(minBrightness);
+      // Serial.print("Min Brightness: ");
+      // Serial.println(minBrightness);
     }
 
+    if (manualTempoOverrideEnabled == true) {
+      int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, 50, 28);
+      if (newTempo != tempo_bpm) {
+        // Serial.print("Manual Tempo: ");
+        // Serial.println(newTempo);
+        tempo_bpm = newTempo;
+        // TODO: Do better debouncing of tempo control
+      }
+
+    } else {
+      // TODO: Implement RTC-controlled tempo
+      tempo_bpm = 60;
+    }
+
+    //
+    // Manual Override Switch
+    // 
+    static bool manualTempoSwitchValue = false;
+    bool newManualTempoSwitchValue = digitalRead(kManualTempoSwitchPin) == LOW ? true : false;
+    if (newManualTempoSwitchValue != manualTempoSwitchValue) {
+      manualTempoSwitchValue = newManualTempoSwitchValue;
+
+      if (manualTempoSwitchValue == true) {
+        Serial.println("Manual tempo switch ON");
+        manualTempoOverrideEnabled = true;
+        statusLedState = StatusLedState::BlinkingSlow;
+      } else {
+        Serial.println("Manual tempo switch OFF");
+        manualTempoOverrideEnabled = false;
+        statusLedState = StatusLedState::On;
+        // TODO: Gracefully handle RTC failure...
+      }
+
+    }
+  }
+
+  
+
+  
+
+  
+  //
+  // LED strips refresh
+  //
+  
+  EVERY_N_MILLIS(16) {
     unsigned int cycleDuration_ms = round((60.0 / tempo_bpm) * 1000.0); // How long between heartbeats
     //
     // Pulse Start Timers
@@ -312,7 +344,7 @@ void loop() {
       heartbeatCycleStartTimer = 0;
 
       // Start the left top pulse
-      leftTopColor = leftTopPulseColor;
+      leftTopBrightness = 1.0;
 
       // Start the left top decay timer
       leftTopDecayTimer = 0;
@@ -326,6 +358,8 @@ void loop() {
 
       waitingToStartRightBottomPulse = true;
       rightBottomStartTimer = 0;
+
+      Serial.println("Start heartbeat");
     }
 
     // Left bottom pulse timer
@@ -333,7 +367,7 @@ void loop() {
     if (waitingToStartLeftBottomPulse == true && leftBottomStartTimer > leftBottomStartDelay_ms) {      
       // Start the pulse
       waitingToStartLeftBottomPulse = false;
-      leftBottomColor = leftBottomPulseColor;
+      leftBottomBrightness = 1.0;
 
       // Start the decay timer
       leftBottomDecayTimer = 0;
@@ -344,7 +378,7 @@ void loop() {
     if (waitingToStartRightTopPulse == true && rightTopStartTimer > rightTopStartDelay_ms) {
       // Start the pulse
       waitingToStartRightTopPulse = false;
-      rightTopColor = rightTopPulseColor;
+      rightTopBrightness = 1.0;
 
       // Start the decay timer
       rightTopDecayTimer = 0;
@@ -355,7 +389,7 @@ void loop() {
     if (waitingToStartRightBottomPulse == true && heartbeatCycleStartTimer > rightBottomStartDelay_ms) {
       // Start the pulse
       waitingToStartRightBottomPulse = false;
-      rightBottomColor = rightBottomPulseColor;
+      rightBottomBrightness = 1.0;
       
       // Start the decay timer
       rightBottomDecayTimer = 0;
@@ -365,40 +399,90 @@ void loop() {
     // LED refresh
     //
 
+    float heartbeatProgress = (float) heartbeatCycleStartTimer / (float) cycleDuration_ms;
+    
+
+    // Left Top
+    //
+    float leftTopProgress = heartbeatProgress / leftTopDecay;
+    if (leftTopProgress < 1.0) {
+      leftTopBrightness = 1.0 - leftTopProgress;
+    } else {
+      leftTopBrightness = 0.0;
+    }
+
+    int leftTopLedValue = int(round(leftTopBrightness * 255.0));
+    leftTopLedValue = max(leftTopLedValue, minBrightness);
+
+    CHSV leftTopColor = CHSV(heartbeatHue, 255, leftTopLedValue);
+
     // Refresh left top LEDs
     for (int i = LEFT_BOT_NUM_LEDS; i < LEFT_BOT_NUM_LEDS + LEFT_TOP_NUM_LEDS; i++) {
       leftLeds[i] = leftTopColor;
     }
+
+
+    // Left Bottom
+    //
+    float leftBottomProgress = (heartbeatProgress - leftBottomStartDelay) / leftBottomDecay;
+    if (leftBottomProgress >= 0.0 && leftBottomProgress < 1.0) {
+      leftBottomBrightness = 1.0 - leftBottomProgress;
+    } else {
+      leftBottomBrightness = 0.0;
+    }
+
+    int leftBottomLedValue = int(round(leftBottomBrightness * 255.0));
+    leftBottomLedValue = max(leftBottomLedValue, minBrightness);
+
+    CHSV leftBottomColor = CHSV(heartbeatHue, 255, leftBottomLedValue);
 
     // Refresh left bottom LEDs
     for (int i = 0; i < LEFT_BOT_NUM_LEDS; i++) {
       leftLeds[i] = leftBottomColor;
     }
 
-    // Refresh right top LEDs
+
+    // Right Top
+    //
+    float rightTopProgress = (heartbeatProgress - rightTopStartDelay) / rightTopDecay;
+    if (rightTopProgress >= 0.0 && rightTopProgress < 1.0) {
+      rightTopBrightness = 1.0 - rightTopProgress;
+    } else {
+      rightTopBrightness = 0.0;
+    }
+
+    int rightTopLedValue = int(round(rightTopBrightness * 255.0));
+    rightTopLedValue = max(rightTopLedValue, minBrightness);
+
+    CHSV rightTopColor = CHSV(heartbeatHue, 255, rightTopLedValue);
+
+    // Refresh right bottom LEDs
     for (int i = RIGHT_BOT_NUM_LEDS; i < RIGHT_BOT_NUM_LEDS + RIGHT_TOP_NUM_LEDS; i++) {
       rightLeds[i] = rightTopColor;
     }
+
+
+    // Right Bottom
+    //
+    float rightBottomProgress = (heartbeatProgress - rightBottomStartDelay) / rightBottomDecay;
+    if (rightBottomProgress >= 0.0 && rightBottomProgress < 1.0) {
+      rightBottomBrightness = 1.0 - rightBottomProgress;
+    } else {
+      rightBottomBrightness = 0.0;
+    }
+
+    int rightBottomLedValue = int(round(rightBottomBrightness * 255.0));
+    rightBottomLedValue = max(rightBottomLedValue, minBrightness);
+
+    CHSV rightBottomColor = CHSV(heartbeatHue, 255, rightBottomLedValue);
 
     // Refresh right bottom LEDs
     for (int i = 0; i < RIGHT_BOT_NUM_LEDS; i++) {
       rightLeds[i] = rightBottomColor;
     }
 
+
     FastLED.show();
-    
-    //
-    // LED Decay
-    //
-      
-    leftTopColor.v = max(leftTopPulseColor.v - (leftTopDecayTimer * leftTopPulseColor.v) / (cycleDuration_ms * leftTopDecay), minBrightness);
-    leftBottomColor.v = max(leftBottomPulseColor.v - (leftBottomDecayTimer * leftBottomPulseColor.v) / (cycleDuration_ms * leftBottomDecay), minBrightness);
-    rightTopColor.v = max(rightTopPulseColor.v - (rightTopDecayTimer * rightTopPulseColor.v) / (cycleDuration_ms * rightTopDecay), minBrightness);
-    rightBottomColor.v = max(rightBottomPulseColor.v - (rightBottomDecayTimer * rightBottomPulseColor.v) / (cycleDuration_ms * rightBottomDecay), minBrightness);
-
-    
-    
-
   }
 
   // EVERY_N_SECONDS(2) {
@@ -412,6 +496,18 @@ void loop() {
   // }
     
     
+}
+
+int gammaCorrectedValue(int value, float correctionFactor) {
+  // Return a gamma-corrected LED intensity value
+  float correctedVal = pow((float) value / (float) 255, correctionFactor) * 255 + 0.5;
+  return round(correctedVal);
+}
+
+float gammaCorrectedFloatValue(float value, float correctionFactor) {
+  // Return a gamma-corrected float LED intensity value.
+  // Input value must be in the range 0.0 to 1.0
+  return pow(value, correctionFactor);
 }
 
 
