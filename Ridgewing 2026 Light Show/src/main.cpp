@@ -38,12 +38,6 @@ float rightTopStartDelay = 0.015;
 float leftBottomStartDelay = 0.15;
 float rightBottomStartDelay = 0.15;
 
-// Proportion of overall cycle required to reach full brightness
-float leftTopAttack = 0.1;
-float leftBottomAttack = 0.1;
-float rightTopAttack = 0.1;
-float rightBottomAttack = 0.1;
-
 // Proportion of overall cycle required to fade down to black
 float leftTopDecay = 0.7; 
 float leftBottomDecay = 0.7; 
@@ -75,6 +69,11 @@ int heartbeatHue = 0;
 const int kMaxBrightnessPotPin = A12;
 const int kMinBrightnessPotPin = A11;
 const int kManualTempoPotPin = A10;
+
+int kMaxBrightnessControlMinValue = 40;
+int kMinBrightnessControlMaxValue = kMaxBrightnessControlMinValue;
+int kManualTempoControlMinValue = 24;
+int kManualTempoControlMaxValue = 45;
 
 int minBrightness = 0;
 int maxBrightness = 255;
@@ -270,26 +269,26 @@ void loop() {
     //
     // Read potentiometer positions
     //
-    int newMaxBrightnessVal = map(analogRead(kMaxBrightnessPotPin), 0, 1023, 255, 0);
+    int newMaxBrightnessVal = map(analogRead(kMaxBrightnessPotPin), 0, 1023, 255, kMaxBrightnessControlMinValue);
     if (newMaxBrightnessVal != maxBrightness) {
       maxBrightness = newMaxBrightnessVal;
       FastLED.setBrightness(maxBrightness);
-      // Serial.print("Max Brightness: ");
-      // Serial.println(maxBrightness);
+      Serial.print("Max Brightness: ");
+      Serial.println(maxBrightness);
     }
 
-    int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, 255, 0);
+    int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, kMinBrightnessControlMaxValue, 0);
     if (newMinBrightnessVal != minBrightness) {
       minBrightness = newMinBrightnessVal;
-      // Serial.print("Min Brightness: ");
-      // Serial.println(minBrightness);
+      Serial.print("Min Brightness: ");
+      Serial.println(minBrightness);
     }
 
     if (manualTempoOverrideEnabled == true) {
-      int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, 50, 28);
+      int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, kManualTempoControlMaxValue, kManualTempoControlMinValue);
       if (newTempo != tempo_bpm) {
-        // Serial.print("Manual Tempo: ");
-        // Serial.println(newTempo);
+        Serial.print("Manual Tempo: ");
+        Serial.println(newTempo);
         tempo_bpm = newTempo;
         // TODO: Do better debouncing of tempo control
       }
