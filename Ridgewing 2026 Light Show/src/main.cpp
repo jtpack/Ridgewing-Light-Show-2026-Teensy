@@ -273,18 +273,24 @@ void loop() {
     //
     int potValAvg = 0;
 
+    static int maxBrightnessAvg = 0;
+
     // Max Brightness Control
     //
     for (int i = 0; i < kNumPotReadsToAverage; i++) {
       potValAvg += analogRead(kMaxBrightnessPotPin);
     }
     potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
-    if (potValAvg >= 1006) potValAvg = 1023;
-    if (potValAvg <= 20) potValAvg = 0;
 
-    int newMaxBrightnessVal = map(potValAvg, 0, 1023, kMaxBrightnessControlMinValue, 255);
+    maxBrightnessAvg += potValAvg;
+    maxBrightnessAvg = maxBrightnessAvg / 2;
     
-    if (abs(newMaxBrightnessVal - maxBrightness) > 1) {
+    // if (potValAvg >= 1006) potValAvg = 1023;
+    // if (potValAvg <= 20) potValAvg = 0;
+
+    int newMaxBrightnessVal = map(maxBrightnessAvg, 0, 1023, kMaxBrightnessControlMinValue, 255);
+    
+    if (newMaxBrightnessVal != maxBrightness) {
       maxBrightness = newMaxBrightnessVal;
       FastLED.setBrightness(maxBrightness);
       Serial.print("Max Brightness: ");
