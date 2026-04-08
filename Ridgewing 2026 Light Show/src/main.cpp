@@ -279,8 +279,8 @@ void loop() {
       potValAvg += analogRead(kMaxBrightnessPotPin);
     }
     potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
-    if (potValAvg >= 1011) potValAvg = 1023;
-    if (potValAvg <= 12) potValAvg = 0;
+    if (potValAvg >= 1006) potValAvg = 1023;
+    if (potValAvg <= 20) potValAvg = 0;
 
     int newMaxBrightnessVal = map(potValAvg, 0, 1023, kMaxBrightnessControlMinValue, 255);
     
@@ -298,8 +298,8 @@ void loop() {
       potValAvg += analogRead(kMinBrightnessPotPin);
     }
     potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
-    if (potValAvg >= 1011) potValAvg = 1023;
-    if (potValAvg <= 12) potValAvg = 0;
+    if (potValAvg >= 1006) potValAvg = 1023;
+    if (potValAvg <= 20) potValAvg = 0;
 
     int newMinBrightnessVal = map(potValAvg, 0, 1023, 0, kMinBrightnessControlMaxValue);
     if (abs(newMinBrightnessVal - minBrightness) > 1) {
@@ -314,8 +314,8 @@ void loop() {
       potValAvg += analogRead(kManualTempoPotPin);
     }
     potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
-    if (potValAvg >= 1011) potValAvg = 1023;
-    if (potValAvg <= 12) potValAvg = 0;
+    if (potValAvg >= 1006) potValAvg = 1023;
+    if (potValAvg <= 20) potValAvg = 0;
 
     if (manualTempoOverrideEnabled == true) {
       int newTempo = map(potValAvg, 0, 1023, kManualTempoControlMinValue, kManualTempoControlMaxValue);
