@@ -66,14 +66,16 @@ int heartbeatHue = 0;
 // Potentiometers
 //
 
-const int kMaxBrightnessPotPin = A12;
-const int kMinBrightnessPotPin = A11;
-const int kManualTempoPotPin = A10;
+const int kMaxBrightnessPotPin = A10; // A
+const int kMinBrightnessPotPin = A11; // B
+const int kManualTempoPotPin = A12; // C
 
 int kMaxBrightnessControlMinValue = 40;
 int kMinBrightnessControlMaxValue = kMaxBrightnessControlMinValue;
 int kManualTempoControlMinValue = 24;
 int kManualTempoControlMaxValue = 45;
+
+const int kNumPotReadsToAverage = 10;
 
 int minBrightness = 0;
 int maxBrightness = 255;
@@ -150,7 +152,7 @@ void setup() {
   pinMode(kMaxBrightnessPotPin, INPUT);
   pinMode(kMinBrightnessPotPin, INPUT);
   pinMode(kManualTempoPotPin, INPUT);
-  
+
   //
   // Prepare Switch
   //
@@ -269,28 +271,58 @@ void loop() {
     //
     // Read potentiometer positions
     //
-    int newMaxBrightnessVal = map(analogRead(kMaxBrightnessPotPin), 0, 1023, 255, kMaxBrightnessControlMinValue);
-    if (newMaxBrightnessVal != maxBrightness) {
+    int potValAvg = 0;
+
+    // Max Brightness Control
+    //
+    for (int i = 0; i < kNumPotReadsToAverage; i++) {
+      potValAvg += analogRead(kMaxBrightnessPotPin);
+    }
+    potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
+    if (potValAvg >= 1011) potValAvg = 1023;
+    if (potValAvg <= 12) potValAvg = 0;
+
+    int newMaxBrightnessVal = map(potValAvg, 0, 1023, kMaxBrightnessControlMinValue, 255);
+    
+    if (abs(newMaxBrightnessVal - maxBrightness) > 1) {
       maxBrightness = newMaxBrightnessVal;
       FastLED.setBrightness(maxBrightness);
       Serial.print("Max Brightness: ");
       Serial.println(maxBrightness);
     }
 
-    int newMinBrightnessVal = map(analogRead(kMinBrightnessPotPin), 0, 1023, kMinBrightnessControlMaxValue, 0);
-    if (newMinBrightnessVal != minBrightness) {
+    // Min Brightness Control
+    //
+    potValAvg = 0;
+    for (int i = 0; i < kNumPotReadsToAverage; i++) {
+      potValAvg += analogRead(kMinBrightnessPotPin);
+    }
+    potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
+    if (potValAvg >= 1011) potValAvg = 1023;
+    if (potValAvg <= 12) potValAvg = 0;
+
+    int newMinBrightnessVal = map(potValAvg, 0, 1023, 0, kMinBrightnessControlMaxValue);
+    if (abs(newMinBrightnessVal - minBrightness) > 1) {
       minBrightness = newMinBrightnessVal;
       Serial.print("Min Brightness: ");
       Serial.println(minBrightness);
     }
 
+    // Manual Tempo Control
+    potValAvg = 0;
+    for (int i = 0; i < kNumPotReadsToAverage; i++) {
+      potValAvg += analogRead(kManualTempoPotPin);
+    }
+    potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
+    if (potValAvg >= 1011) potValAvg = 1023;
+    if (potValAvg <= 12) potValAvg = 0;
+
     if (manualTempoOverrideEnabled == true) {
-      int newTempo = map(analogRead(kManualTempoPotPin), 0, 1023, kManualTempoControlMaxValue, kManualTempoControlMinValue);
-      if (newTempo != tempo_bpm) {
+      int newTempo = map(potValAvg, 0, 1023, kManualTempoControlMinValue, kManualTempoControlMaxValue);
+      if (abs(newTempo - tempo_bpm) > 1) {
         Serial.print("Manual Tempo: ");
         Serial.println(newTempo);
         tempo_bpm = newTempo;
-        // TODO: Do better debouncing of tempo control
       }
 
     } else {
@@ -319,10 +351,6 @@ void loop() {
 
     }
   }
-
-  
-
-  
 
   
   //
