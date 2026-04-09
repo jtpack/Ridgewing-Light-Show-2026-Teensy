@@ -11,6 +11,7 @@
 //
 RV8803 rtc;
 int secondsElapsedSinceMidnight = 0;
+bool rtcSuccessfullyInitialized = false;
 
 //
 // LEDS
@@ -31,7 +32,7 @@ int secondsElapsedSinceMidnight = 0;
 CRGBArray<LEFT_TOP_NUM_LEDS + LEFT_BOT_NUM_LEDS> leftLeds;
 CRGBArray<RIGHT_TOP_NUM_LEDS + RIGHT_BOT_NUM_LEDS> rightLeds;
 
-float tempo_bpm = 50.0;
+float tempo_bpm = 40.0;
 
 // Proportion of overall cycle that each section of LEDs waits to trigger
 float rightTopStartDelay = 0.015;
@@ -165,23 +166,27 @@ void setup() {
   if (rtc.begin() == false) {
     Serial.println("RTC not found. Using manual tempo control");
     statusLedState = StatusLedState::BlinkingFast;
+    rtcSuccessfullyInitialized = false;
   } else {
     Serial.println("Initialized RTC");
+    rtcSuccessfullyInitialized = true;
   }
 
   const bool needToSetTime = false;
 
   if (needToSetTime == true) {
-    int year = 2025;
+    int year = 2026;
     int month = 4;
-    int date = 3;
-    int weekday = 5;
-    int hour = 7; // Use 24 hour mode
-    int minute = 43;
-    int sec = 30;
+    int date = 8;
+    int weekday = 5; // Sunday is 1
+    int hour = 20; // Use 24 hour mode
+    int minute = 33;
+    int sec = 0;
 
     if (rtc.setTime(sec, minute, hour, weekday, date, month, year) == false) {
       Serial.println("Something went wrong setting the time");
+      statusLedState = StatusLedState::BlinkingFast;
+      rtcSuccessfullyInitialized = false;
     }
   }
   
@@ -246,26 +251,41 @@ void loop() {
   // Realtime Clock
   //
   EVERY_N_SECONDS(1) {
-    // Get the current time
-    if (rtc.updateTime() == true) {
-      String currentDate = rtc.stringDateUSA();
-      String currentTime = rtc.stringTime();
-      int hoursSinceMidnight = rtc.getHours();
-      int minutesInThisHour = rtc.getMinutes();
-      int secondsInThisHour = rtc.getSeconds();
-      secondsElapsedSinceMidnight = hoursSinceMidnight * 3600 + minutesInThisHour * 60 + secondsInThisHour;
-      // Serial.print(currentDate);
-      // Serial.print(" ");
-      // Serial.print(currentTime);
-      // Serial.print(" - ");
-      // Serial.print(secondsElapsedSinceMidnight);
-      // Serial.println(" seconds elapsed since midnight");
-    } else {
-      Serial.println("Failed to read from RTC");
+    if (manualTempoOverrideEnabled == false) {
+      if (rtcSuccessfullyInitialized == true) {
+        // Get the current time
+        if (rtc.updateTime() == true) {
+          String currentDate = rtc.stringDateUSA();
+          String currentTime = rtc.stringTime();
+          int hoursSinceMidnight = rtc.getHours();
+          int minutesInThisHour = rtc.getMinutes();
+          int secondsInThisHour = rtc.getSeconds();
+          secondsElapsedSinceMidnight = hoursSinceMidnight * 3600 + minutesInThisHour * 60 + secondsInThisHour;
+          Serial.print(currentDate);
+          Serial.print(" ");
+          Serial.print(currentTime);
+          Serial.print(" - ");
+          Serial.print(secondsElapsedSinceMidnight);
+          Serial.println(" seconds elapsed since midnight");
+
+          // TODO: Implement RTC-controlled tempo
+          tempo_bpm = 60;
+        } else {
+          Serial.println("Failed to read from RTC.");
+          rtcSuccessfullyInitialized = false;
+          statusLedState = StatusLedState::BlinkingFast;
+          tempo_bpm = 40;
+          Serial.print("Setting tempo to a fixed ");
+          Serial.print(tempo_bpm);
+          Serial.println(" BPM");
+        }
+
+      }
+      
+
     }
-
+    
   }
-
 
   EVERY_N_MILLIS(10) {
     //
@@ -325,9 +345,6 @@ void loop() {
         tempo_bpm = newTempo;
       }
 
-    } else {
-      // TODO: Implement RTC-controlled tempo
-      tempo_bpm = 60;
     }
 
     //
@@ -341,12 +358,9 @@ void loop() {
       if (manualTempoSwitchValue == true) {
         Serial.println("Manual tempo switch ON");
         manualTempoOverrideEnabled = true;
-        statusLedState = StatusLedState::BlinkingSlow;
       } else {
         Serial.println("Manual tempo switch OFF");
         manualTempoOverrideEnabled = false;
-        statusLedState = StatusLedState::On;
-        // TODO: Gracefully handle RTC failure...
       }
 
     }
@@ -385,8 +399,6 @@ void loop() {
 
       waitingToStartRightBottomPulse = true;
       rightBottomStartTimer = 0;
-
-      Serial.println("Start heartbeat");
     }
 
     // Left bottom pulse timer
