@@ -12,6 +12,7 @@
 RV8803 rtc;
 int secondsElapsedSinceMidnight = 0;
 bool rtcSuccessfullyInitialized = false;
+int rtcFailureFallbackTempo = 40;
 
 //
 // LEDS
@@ -164,7 +165,7 @@ void setup() {
   //
   Wire.begin();
   if (rtc.begin() == false) {
-    Serial.println("RTC not found. Using manual tempo control");
+    Serial.println("RTC not found");
     statusLedState = StatusLedState::BlinkingFast;
     rtcSuccessfullyInitialized = false;
   } else {
@@ -192,14 +193,35 @@ void setup() {
   
   rtc.set24Hour();
 
-  Serial.println("Booted.");
+  // Get initial control positions
+  manualTempoOverrideEnabled = digitalRead(kManualTempoSwitchPin) == LOW ? true : false;
+  if (manualTempoOverrideEnabled == true) {
+    tempo_bpm = map(analogRead(kManualTempoPotPin), 0, 1023, kManualTempoControlMinValue, kManualTempoControlMaxValue);
+  }
 
-  // while (leftTopBrightness < 1.1) {
-  //   Serial.print(leftTopBrightness);
-  //   Serial.print(" -> ");
-  //   Serial.println(gammaCorrectedFloatValue(leftTopBrightness, gammaCorrectionFactor));
-  //   leftTopBrightness += 0.1;
-  // }
+  maxBrightness = map(analogRead(kMaxBrightnessPotPin), 0, 1023, kMaxBrightnessControlMinValue, 255);
+  minBrightness = map(analogRead(kMinBrightnessPotPin), 0, 1023, 0, kMinBrightnessControlMaxValue);
+
+  if (manualTempoOverrideEnabled == false) {
+      if (rtcSuccessfullyInitialized == true) {
+        Serial.println("Using RTC for automatic tempo control");
+      } else {
+        tempo_bpm = rtcFailureFallbackTempo;
+        Serial.print("Using fallback tempo of ");
+        Serial.print(rtcFailureFallbackTempo);
+        Serial.println(" BPM");
+      }
+    } else {
+      Serial.print("Manual tempo control active. Tempo: ");
+      Serial.print(tempo_bpm);
+      Serial.println(" BPM");
+    }
+
+    Serial.print("Max Brightness: ");
+    Serial.println(maxBrightness);
+
+    Serial.print("Min Brightness: ");
+    Serial.println(minBrightness);
 }
 
 
@@ -274,17 +296,13 @@ void loop() {
           Serial.println("Failed to read from RTC.");
           rtcSuccessfullyInitialized = false;
           statusLedState = StatusLedState::BlinkingFast;
-          tempo_bpm = 40;
-          Serial.print("Setting tempo to a fixed ");
+          tempo_bpm = rtcFailureFallbackTempo;
+          Serial.print("Setting tempo to fallback ");
           Serial.print(tempo_bpm);
           Serial.println(" BPM");
         }
-
       }
-      
-
     }
-    
   }
 
   EVERY_N_MILLIS(10) {
@@ -344,25 +362,20 @@ void loop() {
         Serial.println(newTempo);
         tempo_bpm = newTempo;
       }
-
     }
 
     //
-    // Manual Override Switch
+    // Manual Tempo Switch
     // 
-    static bool manualTempoSwitchValue = false;
     bool newManualTempoSwitchValue = digitalRead(kManualTempoSwitchPin) == LOW ? true : false;
-    if (newManualTempoSwitchValue != manualTempoSwitchValue) {
-      manualTempoSwitchValue = newManualTempoSwitchValue;
+    if (newManualTempoSwitchValue != manualTempoOverrideEnabled) {
+      manualTempoOverrideEnabled = newManualTempoSwitchValue;
 
-      if (manualTempoSwitchValue == true) {
+      if (manualTempoOverrideEnabled == true) {
         Serial.println("Manual tempo switch ON");
-        manualTempoOverrideEnabled = true;
       } else {
         Serial.println("Manual tempo switch OFF");
-        manualTempoOverrideEnabled = false;
       }
-
     }
   }
 
