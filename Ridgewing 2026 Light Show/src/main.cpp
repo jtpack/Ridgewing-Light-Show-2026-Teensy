@@ -13,8 +13,8 @@ RV8803 rtc;
 int secondsElapsedSinceMidnight = 0;
 bool rtcSuccessfullyInitialized = false;
 
-const float circadianMaxTempo = 40;
-const float circadianMinTempo = 26;
+const float kCircadianMaxTempo = 40;
+const float kCircadianMinTempo = 24;
 int rtcFailureFallbackTempo = 32;
 const float wakeupTime_sec = 25200.0; // 07:00
 const float peakTime_sec = 43200.0; // Noon
@@ -80,8 +80,8 @@ const int kManualTempoPotPin = A12; // C
 
 int kMaxBrightnessControlMinValue = 40;
 int kMinBrightnessControlMaxValue = kMaxBrightnessControlMinValue;
-int kManualTempoControlMinValue = 24;
-int kManualTempoControlMaxValue = 45;
+int kManualTempoControlMinValue = kCircadianMinTempo;
+int kManualTempoControlMaxValue = kCircadianMaxTempo;
 
 const int kNumPotReadsToAverage = 10;
 
@@ -312,25 +312,25 @@ void loop() {
 
           } else if (secondsElapsedSinceMidnight <= wakeupTime_sec) {
             // It is early morning. Stay at the minimum tempo
-            tempo_bpm = circadianMinTempo;
+            tempo_bpm = kCircadianMinTempo;
             Serial.print("It is early morning. Using min tempo: ");
             Serial.println(tempo_bpm);
 
           } else if (secondsElapsedSinceMidnight <= peakTime_sec) {
             // It is morning. Slowly ramp up tempo.
-            tempo_bpm = map((float) secondsElapsedSinceMidnight, wakeupTime_sec, peakTime_sec, circadianMinTempo, circadianMaxTempo);
+            tempo_bpm = map((float) secondsElapsedSinceMidnight, wakeupTime_sec, peakTime_sec, kCircadianMinTempo, kCircadianMaxTempo);
             Serial.print("It is after wakeup time and before peak time. Increasing tempo to: ");
             Serial.println(tempo_bpm);
 
           } else if (secondsElapsedSinceMidnight <= windDownTime_sec) {
             // It is after the peak time. Slowly ramp down tempo.
-            tempo_bpm = map((float) secondsElapsedSinceMidnight, peakTime_sec, windDownTime_sec, circadianMaxTempo, circadianMinTempo);
+            tempo_bpm = map((float) secondsElapsedSinceMidnight, peakTime_sec, windDownTime_sec, kCircadianMaxTempo, kCircadianMinTempo);
             Serial.print("It is after peak time. Decreasing tempo to: ");
             Serial.println(tempo_bpm);
 
           } else if (secondsElapsedSinceMidnight <= 86400) {
             // It is after the wind-down time. Stay at minimum tempo.
-            tempo_bpm = circadianMinTempo;
+            tempo_bpm = kCircadianMinTempo;
             Serial.print("It is after wind-down time. Using min tempo: ");
             Serial.println(tempo_bpm);
 
