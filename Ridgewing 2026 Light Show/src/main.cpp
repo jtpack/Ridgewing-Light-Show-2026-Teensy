@@ -12,7 +12,13 @@
 RV8803 rtc;
 int secondsElapsedSinceMidnight = 0;
 bool rtcSuccessfullyInitialized = false;
-int rtcFailureFallbackTempo = 40;
+
+const float circadianMaxTempo = 40;
+const float circadianMinTempo = 26;
+int rtcFailureFallbackTempo = 32;
+const float wakeupTime_sec = 25200.0; // 07:00
+const float peakTime_sec = 43200.0; // Noon
+const float windDownTime_sec = 75600.0; // 21:00
 
 //
 // LEDS
@@ -282,16 +288,62 @@ void loop() {
           int hoursSinceMidnight = rtc.getHours();
           int minutesInThisHour = rtc.getMinutes();
           int secondsInThisHour = rtc.getSeconds();
-          secondsElapsedSinceMidnight = hoursSinceMidnight * 3600 + minutesInThisHour * 60 + secondsInThisHour;
+
           Serial.print(currentDate);
           Serial.print(" ");
           Serial.print(currentTime);
           Serial.print(" - ");
-          Serial.print(secondsElapsedSinceMidnight);
-          Serial.println(" seconds elapsed since midnight");
+          
+          //
+          // Circadian Rhythm-Based Tempo Control
+          //
+          
+          // Try to handle every possibility, as this system will be
+          // running for months in a museum
+          
+          secondsElapsedSinceMidnight = hoursSinceMidnight * 3600 + minutesInThisHour * 60 + secondsInThisHour;
+          if (secondsElapsedSinceMidnight < 0) {
+            Serial.print("Error: Seconds since midnight is somehow less than 0: ");
+            Serial.print(secondsElapsedSinceMidnight);
+            Serial.print(". Using rtc fallback tempo: ");
+            Serial.println(rtcFailureFallbackTempo);
+            tempo_bpm = rtcFailureFallbackTempo;
+            statusLedState = StatusLedState::BlinkingFast;
 
-          // TODO: Implement RTC-controlled tempo
-          tempo_bpm = 60;
+          } else if (secondsElapsedSinceMidnight <= wakeupTime_sec) {
+            // It is early morning. Stay at the minimum tempo
+            tempo_bpm = circadianMinTempo;
+            Serial.print("It is early morning. Using min tempo: ");
+            Serial.println(tempo_bpm);
+
+          } else if (secondsElapsedSinceMidnight <= peakTime_sec) {
+            // It is morning. Slowly ramp up tempo.
+            tempo_bpm = map((float) secondsElapsedSinceMidnight, wakeupTime_sec, peakTime_sec, circadianMinTempo, circadianMaxTempo);
+            Serial.print("It is after wakeup time and before peak time. Increasing tempo to: ");
+            Serial.println(tempo_bpm);
+
+          } else if (secondsElapsedSinceMidnight <= windDownTime_sec) {
+            // It is after the peak time. Slowly ramp down tempo.
+            tempo_bpm = map((float) secondsElapsedSinceMidnight, peakTime_sec, windDownTime_sec, circadianMaxTempo, circadianMinTempo);
+            Serial.print("It is after peak time. Decreasing tempo to: ");
+            Serial.println(tempo_bpm);
+
+          } else if (secondsElapsedSinceMidnight <= 86400) {
+            // It is after the wind-down time. Stay at minimum tempo.
+            tempo_bpm = circadianMinTempo;
+            Serial.print("It is after wind-down time. Using min tempo: ");
+            Serial.println(tempo_bpm);
+
+          } else {
+            Serial.print("Error: Seconds since midnight is somehow greater than 86400 (24 hours): ");
+            Serial.print(secondsElapsedSinceMidnight);
+            Serial.print(". Using rtc fallback tempo: ");
+            Serial.println(rtcFailureFallbackTempo);
+            tempo_bpm = rtcFailureFallbackTempo;
+            statusLedState = StatusLedState::BlinkingFast;
+
+          }
+          
         } else {
           Serial.println("Failed to read from RTC.");
           rtcSuccessfullyInitialized = false;
