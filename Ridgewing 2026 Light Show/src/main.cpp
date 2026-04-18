@@ -28,13 +28,13 @@ const float windDownTime_sec = 75600.0; // 21:00
 #define COLOR_ORDER BRG
 
 // LED arrays
-#define LEFT_LED_PIN    1
+#define LEFT_LED_PIN    8
 #define LEFT_TOP_NUM_LEDS 28
-#define LEFT_BOT_NUM_LEDS 55
+#define LEFT_BOT_NUM_LEDS 65
 
-#define RIGHT_LED_PIN   8
-#define RIGHT_TOP_NUM_LEDS 14
-#define RIGHT_BOT_NUM_LEDS 63
+#define RIGHT_LED_PIN   1
+#define RIGHT_TOP_NUM_LEDS 16
+#define RIGHT_BOT_NUM_LEDS 65
 
 CRGBArray<LEFT_TOP_NUM_LEDS + LEFT_BOT_NUM_LEDS> leftLeds;
 CRGBArray<RIGHT_TOP_NUM_LEDS + RIGHT_BOT_NUM_LEDS> rightLeds;
