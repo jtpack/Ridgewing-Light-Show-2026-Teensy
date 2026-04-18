@@ -389,7 +389,7 @@ void loop() {
     }
     potValAvg = (int) round((float) potValAvg / (float) kNumPotReadsToAverage);
     if (potValAvg >= 1006) potValAvg = 1023;
-    if (potValAvg <= 20) potValAvg = 0;
+    if (potValAvg <= 40) potValAvg = 0;
 
     int newMinBrightnessVal = map(potValAvg, 0, 1023, 0, kMinBrightnessControlMaxValue);
     if (abs(newMinBrightnessVal - minBrightness) > 1) {
