@@ -589,13 +589,11 @@ void loop() {
     FastLED.show();
   }
 
-  // EVERY_N_SECONDS(2) {
-  //   heartbeatHue += 1;
+  // EVERY_N_SECONDS(1) {
+  //   heartbeatHue += 10;
   //   if (heartbeatHue > 255) {
   //     heartbeatHue = 0;
   //   }
-  //   leftBottomColor.h = heartbeatHue;
-  //   leftBottomPulseColor.h = heartbeatHue;
   //   Serial.println(heartbeatHue);
   // }
     
